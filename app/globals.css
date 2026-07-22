@@ -1,0 +1,175 @@
+@import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-primary: #0F0A1E;
+  --bg-secondary: #160D2E;
+  --bg-card: #1A1033;
+  --accent-purple: #7C3AED;
+  --accent-light: #A855F7;
+  --accent-pink: #EC4899;
+  --text-primary: #F9FAFB;
+  --text-secondary: #C4B5FD;
+  --border-color: rgba(124, 58, 237, 0.3);
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'Prompt', 'Noto Sans Thai', system-ui, sans-serif;
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #160D2E;
+}
+::-webkit-scrollbar-thumb {
+  background: #7C3AED;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #A855F7;
+}
+
+/* Selection */
+::selection {
+  background: rgba(168, 85, 247, 0.3);
+  color: #fff;
+}
+
+/* Neon glow text */
+.text-neon {
+  text-shadow: 0 0 20px rgba(168, 85, 247, 0.8), 0 0 40px rgba(168, 85, 247, 0.4);
+}
+
+.text-neon-pink {
+  text-shadow: 0 0 20px rgba(236, 72, 153, 0.8), 0 0 40px rgba(236, 72, 153, 0.4);
+}
+
+/* Glass card effect */
+.glass-card {
+  background: rgba(22, 13, 46, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(124, 58, 237, 0.2);
+}
+
+/* Gradient border */
+.gradient-border {
+  position: relative;
+}
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, #7C3AED, #A855F7, #EC4899);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+/* Shimmer effect */
+.shimmer {
+  background: linear-gradient(90deg, transparent 0%, rgba(168, 85, 247, 0.1) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* Star rating */
+.star-filled {
+  color: #F59E0B;
+}
+
+/* Badge styles */
+.badge-hot {
+  background: linear-gradient(135deg, #EF4444, #F97316);
+}
+.badge-new {
+  background: linear-gradient(135deg, #10B981, #06B6D4);
+}
+.badge-sale {
+  background: linear-gradient(135deg, #7C3AED, #EC4899);
+}
+
+/* Button styles */
+.btn-primary {
+  background: linear-gradient(135deg, #7C3AED, #A855F7);
+  transition: all 0.3s ease;
+}
+.btn-primary:hover {
+  background: linear-gradient(135deg, #6D28D9, #9333EA);
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.5);
+  transform: translateY(-1px);
+}
+
+/* Card hover effect */
+.product-card {
+  transition: all 0.3s ease;
+}
+.product-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(124, 58, 237, 0.3);
+  border-color: rgba(168, 85, 247, 0.5);
+}
+
+/* Particle animation */
+@keyframes particle-float {
+  0%, 100% { transform: translateY(0) rotate(0deg); opacity: 0.5; }
+  50% { transform: translateY(-20px) rotate(180deg); opacity: 1; }
+}
+
+.particle {
+  animation: particle-float 3s ease-in-out infinite;
+}
+
+/* Category icon glow */
+.category-icon {
+  transition: all 0.3s ease;
+}
+.category-icon:hover {
+  box-shadow: 0 0 20px currentColor;
+  transform: scale(1.1);
+}
+
+/* Countdown timer */
+.countdown-box {
+  background: rgba(124, 58, 237, 0.2);
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  border-radius: 8px;
+  padding: 8px 12px;
+  min-width: 52px;
+  text-align: center;
+}
+
+/* Navigation active */
+.nav-active {
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.3), rgba(168, 85, 247, 0.1));
+  border-radius: 8px;
+}
+
+/* Hide scrollbar for horizontal scroll */
+.scroll-x-hidden::-webkit-scrollbar {
+  display: none;
+}
+.scroll-x-hidden {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
