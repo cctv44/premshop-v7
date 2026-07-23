@@ -13,12 +13,12 @@ export default function AdminTopupsPage() {
   const fetchRequests = useCallback(async () => {
     setLoading(true);
     try {
-      // ดึงข้อมูลคำขอเติมเงิน และ Join กับ Profiles
+      // ใช้สัญลักษณ์ ! เพื่อระบุ Foreign Key ให้ชัดเจน ป้องกันการดึงข้อมูลพลาด
       const { data, error } = await supabase
         .from("topup_requests")
         .select(`
           *,
-          profiles:user_id (
+          profiles!user_id (
             display_name,
             email,
             balance
@@ -28,13 +28,21 @@ export default function AdminTopupsPage() {
         .order("created_at", { ascending: false });
 
       if (error) {
-        console.error("Fetch Error:", error);
-        toast.error("ไม่สามารถดึงข้อมูลได้");
+        console.error("Supabase Error:", error);
+        // ถ้า Join พลาด ให้ลองดึงแบบธรรมดามาโชว์ก่อนเพื่อไม่ให้หน้าว่าง
+        const { data: simpleData } = await supabase
+          .from("topup_requests")
+          .select("*")
+          .eq("status", "pending");
+        
+        if (simpleData) setRequests(simpleData);
+        toast.error("ดึงข้อมูลโปรไฟล์ลูกค้าไม่ได้ แต่ดึงรายการได้");
       } else {
         setRequests(data || []);
       }
     } catch (err) {
-      console.error(err);
+      console.error("System Error:", err);
+      toast.error("เกิดข้อผิดพลาดในการเชื่อมต่อ");
     } finally {
       setLoading(false);
     }
@@ -45,105 +53,67 @@ export default function AdminTopupsPage() {
   }, [fetchRequests]);
 
   async function handleAction(id: string, userId: string, amount: number, currentBalance: number, action: "approved" | "rejected") {
-    if (!confirm(`ยืนยันการ ${action === 'approved' ? 'อนุมัติ' : 'ปฏิเสธ'} จำนวนเงิน ฿${amount}?`)) return;
+    if (!confirm(`ยืนยันการ ${action === 'approved' ? 'อนุมัติ' : 'ปฏิเสธ'} ฿${amount}?`)) return;
 
     try {
       if (action === "approved") {
-        // 1. เพิ่มเครดิตให้ลูกค้า
         const { error: updateErr } = await supabase
           .from("profiles")
           .update({ balance: Number(currentBalance || 0) + Number(amount) })
           .eq("id", userId);
-        
         if (updateErr) throw updateErr;
       }
 
-      // 2. อัปเดตสถานะคำขอ
       const { error: statusErr } = await supabase
         .from("topup_requests")
         .update({ status: action })
         .eq("id", id);
-
       if (statusErr) throw statusErr;
 
-      toast.success(action === "approved" ? "อนุมัติเครดิตสำเร็จ" : "ปฏิเสธรายการแล้ว");
+      toast.success("ดำเนินการสำเร็จ");
       fetchRequests();
     } catch (error: any) {
-      toast.error("เกิดข้อผิดพลาด: " + error.message);
+      toast.error("Error: " + error.message);
     }
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-black text-white">ยืนยันการโอนเงิน</h1>
-        <button 
-          onClick={fetchRequests}
-          className="text-xs bg-purple-600/20 text-purple-400 px-4 py-2 rounded-xl border border-purple-500/20 hover:bg-purple-600 hover:text-white transition-all"
-        >
-          รีเฟรชข้อมูล
+        <h1 className="text-2xl font-black text-white">ยืนยันการโอนเงิน</h1>
+        <button onClick={fetchRequests} className="bg-purple-600/20 text-purple-400 px-4 py-2 rounded-xl border border-purple-500/20 text-xs font-bold">
+          รีเฟรช
         </button>
       </div>
       
       {loading ? (
-        <div className="flex justify-center py-20">
-          <Loader2 className="w-10 h-10 text-purple-500 animate-spin" />
-        </div>
+        <div className="flex justify-center py-20"><Loader2 className="animate-spin text-purple-500" /></div>
       ) : requests.length === 0 ? (
-        <div className="text-center py-24 text-gray-600 bg-[#1A1633]/50 rounded-[2.5rem] border border-dashed border-purple-900/30">
-          <ImageIcon className="w-12 h-12 mx-auto mb-4 opacity-20" />
-          <p className="font-bold">ไม่มีรายการรออนุมัติในขณะนี้</p>
+        <div className="text-center py-20 bg-[#1A1633] rounded-[2rem] border border-dashed border-purple-900/30 text-gray-500">
+          ไม่พบรายการรออนุมัติ
         </div>
       ) : (
         <div className="grid gap-4">
           {requests.map(req => (
-            <div key={req.id} className="bg-[#1A1633] border border-purple-900/30 p-6 rounded-[2rem] flex flex-wrap items-center justify-between gap-6 transition-all hover:border-purple-500/30">
+            <div key={req.id} className="bg-[#1A1633] border border-purple-900/30 p-5 rounded-[2rem] flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-4">
-                <div className="w-14 h-14 bg-purple-600/10 border border-purple-500/20 rounded-2xl flex items-center justify-center text-purple-400 shadow-inner">
-                  <User size={28} />
-                </div>
+                <div className="w-12 h-12 bg-purple-600/10 rounded-2xl flex items-center justify-center text-purple-400"><User size={24} /></div>
                 <div>
-                  <div className="text-white font-black text-lg">{req.profiles?.display_name || 'ไม่ระบุชื่อ'}</div>
-                  <div className="text-gray-500 text-xs font-medium">{req.profiles?.email || 'ไม่มีอีเมล'}</div>
-                  <div className="text-purple-400 text-[10px] font-black mt-1 uppercase tracking-widest">
-                    {new Date(req.created_at).toLocaleString('th-TH')}
-                  </div>
+                  <div className="text-white font-bold">{req.profiles?.display_name || 'ลูกค้าทั่วไป'}</div>
+                  <div className="text-gray-500 text-xs">{req.profiles?.email || 'ไม่ได้ระบุอีเมล'}</div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-8">
+              <div className="flex items-center gap-6">
                 <div className="text-right">
-                  <div className="text-gray-500 text-[10px] font-black uppercase tracking-tighter">ยอดเงินที่แจ้ง</div>
-                  <div className="text-emerald-400 font-black text-3xl">฿{req.amount.toLocaleString()}</div>
+                  <div className="text-emerald-400 font-black text-2xl">฿{req.amount}</div>
+                  <div className="text-[9px] text-gray-600">{new Date(req.created_at).toLocaleString('th-TH')}</div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                   {/* ปุ่มดูสลิป */}
-                   <a 
-                    href={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/slips/${req.slip_url}`} 
-                    target="_blank" 
-                    rel="noreferrer"
-                    className="p-4 bg-white/5 text-gray-400 hover:text-white rounded-2xl border border-white/10 transition-all hover:bg-white/10"
-                    title="ดูรูปสลิป"
-                   >
-                    <ExternalLink size={20} />
-                   </a>
-                   
-                   {/* ปุ่มอนุมัติ */}
-                   <button 
-                    onClick={() => handleAction(req.id, req.user_id, req.amount, req.profiles?.balance || 0, "approved")}
-                    className="p-4 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white rounded-2xl border border-emerald-500/20 transition-all shadow-lg shadow-emerald-900/20"
-                   >
-                    <Check size={20} strokeWidth={3} />
-                   </button>
-
-                   {/* ปุ่มปฏิเสธ */}
-                   <button 
-                    onClick={() => handleAction(req.id, req.user_id, req.amount, req.profiles?.balance || 0, "rejected")}
-                    className="p-4 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white rounded-2xl border border-red-500/20 transition-all"
-                   >
-                    <X size={20} strokeWidth={3} />
-                   </button>
+                <div className="flex items-center gap-2">
+                   <a href={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/slips/${req.slip_url}`} target="_blank" className="p-3 bg-white/5 text-gray-400 rounded-xl border border-white/10 hover:text-white"><ExternalLink size={18} /></a>
+                   <button onClick={() => handleAction(req.id, req.user_id, req.amount, req.profiles?.balance || 0, "approved")} className="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20"><Check size={18} /></button>
+                   <button onClick={() => handleAction(req.id, req.user_id, req.amount, req.profiles?.balance || 0, "rejected")} className="p-3 bg-red-500/10 text-red-400 rounded-xl border border-red-500/20"><X size={18} /></button>
                 </div>
               </div>
             </div>
