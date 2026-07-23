@@ -6,12 +6,10 @@ export async function POST(req: NextRequest) {
   const supabase = createClient();
 
   try {
-    // 1. Fetch products from API
     const response = await fetch(apiUrl);
     const apiProducts = await response.json();
 
-    // 2. Process and import to Supabase
-    for (const p of apiProducts) {
+    const importResults = apiProducts.map((p: any) => {
       let finalPrice = p.price;
       if (marginType === "percent") {
         finalPrice = p.price * (1 + marginValue / 100);
@@ -19,17 +17,23 @@ export async function POST(req: NextRequest) {
         finalPrice = p.price + marginValue;
       }
 
-      await supabase.from("products").insert({
+      return {
         name: p.name,
-        slug: p.slug, // Should ensure unique slug
+        slug: `${p.slug}-${Date.now()}`,
         category: p.category,
-        price: finalPrice,
-        is_active: false, // Inactive by default for review
-      });
-    }
+        description: p.description,
+        price: Number(finalPrice.toFixed(2)),
+        is_active: false,
+      };
+    });
 
-    return NextResponse.json({ success: true });
+    const { error } = await supabase.from("products").insert(importResults);
+
+    if (error) throw error;
+
+    return NextResponse.json({ success: true, count: importResults.length });
   } catch (error) {
+    console.error("Import error:", error);
     return NextResponse.json({ error: "Import failed" }, { status: 500 });
   }
 }

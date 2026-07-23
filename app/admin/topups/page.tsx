@@ -20,15 +20,17 @@ export default function AdminTopupsPage() {
     setRequests(data || []);
   }
 
-  async function handleApprove(id: string, userId: string, amount: number) {
+  async function handleAction(id: string, userId: string, amount: number, action: "approved" | "rejected") {
     // 1. Update status
-    await supabase.from("topup_requests").update({ status: "approved" }).eq("id", id);
+    await supabase.from("topup_requests").update({ status: action }).eq("id", id);
     
-    // 2. Add balance
-    const { data: profile } = await supabase.from("profiles").select("balance").eq("id", userId).single();
-    await supabase.from("profiles").update({ balance: (profile?.balance || 0) + amount }).eq("id", userId);
+    // 2. Add balance if approved
+    if (action === "approved") {
+      const { data: profile } = await supabase.from("profiles").select("balance").eq("id", userId).single();
+      await supabase.from("profiles").update({ balance: (profile?.balance || 0) + amount }).eq("id", userId);
+    }
 
-    toast.success("อนุมัติเครดิตสำเร็จ");
+    toast.success(`ดำเนินการ ${action === "approved" ? "อนุมัติ" : "ปฏิเสธ"} สำเร็จ`);
     fetchRequests();
   }
 
@@ -53,12 +55,18 @@ export default function AdminTopupsPage() {
                 <td className="p-4">
                   <a href={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/slips/${req.slip_url}`} target="_blank" className="text-purple-400 underline">ดูสลิป</a>
                 </td>
-                <td className="p-4">
+                <td className="p-4 flex gap-2">
                   <button 
-                    onClick={() => handleApprove(req.id, req.user_id, req.amount)}
+                    onClick={() => handleAction(req.id, req.user_id, req.amount, "approved")}
                     className="bg-green-600 hover:bg-green-700 px-3 py-1 rounded-lg text-sm"
                   >
                     อนุมัติ
+                  </button>
+                  <button 
+                    onClick={() => handleAction(req.id, req.user_id, req.amount, "rejected")}
+                    className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded-lg text-sm"
+                  >
+                    ปฏิเสธ
                   </button>
                 </td>
               </tr>
