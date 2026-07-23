@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { 
   Menu, X, User, LayoutDashboard, CreditCard, 
   ShoppingBag, LogOut, Home, Bot, LifeBuoy, 
-  Package, History, Settings, Plus, ChevronRight, Clock 
+  Package, History, Settings, ChevronRight, Clock, Plus 
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -18,20 +18,34 @@ export function Header() {
   const supabase = createClient();
   const router = useRouter();
 
-  // ระบบนาฬิกา real-time
+  // ระบบนาฬิกา Real-time
   useEffect(() => {
-    const timer = setInterval(() => {
+    const updateTime = () => {
       const now = new Date();
-      setCurrentTime(now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' · ' + now.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }));
-    }, 1000);
+      const timeStr = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const dateStr = now.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+      setCurrentTime(`${timeStr} · ${dateStr}`);
+    };
+    updateTime();
+    const timer = setInterval(updateTime, 1000);
     return () => clearInterval(timer);
   }, []);
 
   const fetchProfile = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data } = await supabase.from("profiles").select("*").eq("id", user.id).single();
-      setProfile(data);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", user.id)
+          .single();
+        if (!error && data) {
+          setProfile(data);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching profile:", err);
     }
   }, [supabase]);
 
@@ -44,12 +58,15 @@ export function Header() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    window.location.reload();
+    router.refresh();
+    window.location.href = "/";
   };
+
+  const closeMenu = () => setIsMobileOpen(false);
 
   return (
     <>
-      <header className={`fixed top-0 left-0 right-0 z-[60] transition-all duration-300 ${isScrolled ? "bg-[#0D0820]/95 backdrop-blur-lg border-b border-purple-900/30 shadow-lg" : "bg-[#0D0820] border-b border-purple-900/10"}`}>
+      <header className={`fixed top-0 left-0 right-0 z-[60] transition-all duration-300 ${isScrolled ? "bg-[#0D0820]/95 backdrop-blur-lg border-b border-purple-900/30" : "bg-[#0D0820] border-b border-purple-900/10"}`}>
         <div className="max-w-screen-xl mx-auto px-4">
           <div className="flex items-center h-16 justify-between gap-4">
             {/* Logo */}
@@ -69,37 +86,33 @@ export function Header() {
               <Link href="/topup" className="text-sm text-gray-300 hover:text-white transition-colors">เติมเงิน</Link>
             </nav>
 
-            {/* Mobile Toggle & Desktop Profile */}
-            <div className="flex items-center gap-3">
-              <button 
-                onClick={() => setIsMobileOpen(!isMobileOpen)} 
-                className="p-2.5 text-purple-400 hover:text-white bg-purple-900/20 rounded-xl border border-purple-500/30 transition-all active:scale-95"
-              >
-                {isMobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-              </button>
-            </div>
+            {/* Mobile Toggle */}
+            <button 
+              onClick={() => setIsMobileOpen(!isMobileOpen)} 
+              className="p-2.5 text-purple-400 hover:text-white bg-purple-900/20 rounded-xl border border-purple-500/30 transition-all active:scale-95"
+            >
+              {isMobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
           </div>
         </div>
 
-        {/* Mobile Sidebar Menu (รูปแบบใหม่ตามรูปตัวอย่าง) */}
+        {/* Mobile Sidebar Overlay (User Panel Style) */}
         {isMobileOpen && (
-          <div className="fixed inset-0 top-16 bg-[#0D0820]/80 backdrop-blur-md z-[70] overflow-y-auto animate-fade-in">
+          <div className="fixed inset-0 top-16 bg-[#0D0820] z-[70] overflow-y-auto">
             <div className="max-w-md mx-auto p-4 space-y-6 pb-20">
               
-              {/* ส่วนที่ 1: Profile Card (การ์ดด้านบน) */}
+              {/* 1. Profile Card */}
               {profile ? (
                 <div className="relative overflow-hidden bg-gradient-to-br from-purple-600 to-pink-600 rounded-[2rem] p-6 text-white shadow-2xl">
-                  <div className="flex items-start justify-between relative z-10">
-                    <div className="flex items-center gap-4">
-                      <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-3xl shadow-inner">
-                        👤
-                      </div>
-                      <div>
-                        <div className="text-xs text-purple-100 opacity-80 uppercase tracking-widest font-bold">สวัสดี</div>
-                        <div className="text-xl font-black truncate max-w-[150px]">{profile.display_name || 'User'}</div>
-                        <div className="mt-1 inline-flex items-center gap-1 bg-yellow-400 text-purple-900 text-[10px] font-black px-2 py-0.5 rounded-full uppercase">
-                          ⭐ สมาชิก
-                        </div>
+                  <div className="flex items-center gap-4 relative z-10">
+                    <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-3xl">
+                      👤
+                    </div>
+                    <div>
+                      <div className="text-xs text-purple-100 opacity-80 font-bold uppercase tracking-widest">สวัสดี</div>
+                      <div className="text-xl font-black truncate max-w-[180px]">{profile.display_name || profile.email || 'User'}</div>
+                      <div className="mt-1 inline-flex items-center gap-1 bg-yellow-400 text-purple-900 text-[10px] font-black px-2 py-0.5 rounded-full uppercase">
+                        ⭐ สมาชิก
                       </div>
                     </div>
                   </div>
@@ -109,9 +122,9 @@ export function Header() {
                       <div className="text-[10px] text-purple-100/70 flex items-center gap-1 mb-1">
                         <CreditCard className="w-3 h-3" /> ยอดเงินคงเหลือ
                       </div>
-                      <div className="text-2xl font-black">฿{profile.balance?.toLocaleString() || '0.00'}</div>
+                      <div className="text-2xl font-black">฿{(profile.balance || 0).toLocaleString()}</div>
                     </div>
-                    <Link href="/topup" onClick={() => setIsMobileOpen(false)} className="w-10 h-10 bg-white text-purple-600 rounded-xl flex items-center justify-center shadow-lg active:scale-90 transition-transform">
+                    <Link href="/topup" onClick={closeMenu} className="w-10 h-10 bg-white text-purple-600 rounded-xl flex items-center justify-center shadow-lg active:scale-90 transition-transform">
                       <Plus className="w-6 h-6" />
                     </Link>
                   </div>
@@ -119,77 +132,50 @@ export function Header() {
                   <div className="mt-4 flex items-center gap-2 text-[10px] text-purple-100/60 font-medium">
                     <Clock className="w-3 h-3" /> {currentTime}
                   </div>
-
-                  {/* ลายน้ำหลังการ์ด */}
-                  <div className="absolute -bottom-4 -right-4 w-32 h-32 bg-white/5 rounded-full blur-2xl" />
                 </div>
               ) : (
                 <div className="bg-gradient-to-br from-purple-600 to-pink-600 rounded-[2rem] p-8 text-center text-white shadow-xl">
                    <h2 className="text-xl font-black mb-4">ยินดีต้อนรับสู่ PREMSHOP</h2>
-                   <Link href="/login" onClick={() => setIsMobileOpen(false)} className="inline-block bg-white text-purple-600 px-8 py-3 rounded-2xl font-bold shadow-lg">
+                   <Link href="/login" onClick={closeMenu} className="inline-block bg-white text-purple-600 px-8 py-3 rounded-2xl font-bold shadow-lg">
                       เข้าสู่ระบบ / สมัครสมาชิก
                    </Link>
                 </div>
               )}
 
-              {/* ส่วนที่ 2: Quick Actions (เมนูไอคอน 4 อัน) */}
+              {/* 2. Quick Actions */}
               <div className="grid grid-cols-4 gap-4">
-                {[
-                  { icon: <Home className="w-6 h-6" />, label: "หน้าแรก", href: "/", color: "text-orange-400" },
-                  { icon: <Bot className="w-6 h-6" />, label: "AI", href: "#", color: "text-purple-400" },
-                  { icon: <CreditCard className="w-6 h-6" />, label: "เติมเงิน", href: "/topup", color: "text-pink-400" },
-                  { icon: <LifeBuoy className="w-6 h-6" />, label: "ช่วยเหลือ", href: "/contact", color: "text-blue-400" },
-                ].map((item, idx) => (
-                  <Link key={idx} href={item.href} onClick={() => setIsMobileOpen(false)} className="flex flex-col items-center gap-2 group">
-                    <div className="w-14 h-14 bg-white/5 rounded-2xl border border-white/10 flex items-center justify-center transition-all group-hover:bg-purple-600 group-hover:text-white text-gray-400">
-                      {item.icon}
-                    </div>
-                    <span className="text-[10px] text-gray-400 font-bold">{item.label}</span>
-                  </Link>
-                ))}
+                <QuickAction icon={<Home />} label="หน้าแรก" href="/" onClick={closeMenu} />
+                <QuickAction icon={<Bot />} label="AI" href="#" onClick={closeMenu} />
+                <QuickAction icon={<CreditCard />} label="เติมเงิน" href="/topup" onClick={closeMenu} />
+                <QuickAction icon={<LifeBuoy />} label="ช่วยเหลือ" href="/contact" onClick={closeMenu} />
               </div>
 
-              {/* ส่วนที่ 3: Menu List (รายการเมนูหลัก) */}
+              {/* 3. Menu Groups */}
               <div className="space-y-6">
                 <div>
                   <div className="text-[11px] font-black text-gray-500 uppercase tracking-widest px-2 mb-3">เมนูหลัก</div>
-                  <div className="space-y-1">
-                    <MenuItem href="/" icon={<Home />} label="หน้าแรก" onClick={() => setIsMobileOpen(false)} />
-                  </div>
+                  <MenuItem href="/" icon={<Home size={18} />} label="หน้าแรก" onClick={closeMenu} />
                 </div>
 
                 <div>
                   <div className="text-[11px] font-black text-gray-500 uppercase tracking-widest px-2 mb-3">หมวดสินค้า</div>
-                  <div className="space-y-1">
-                    <MenuItem href="/products" icon={<Package />} label="สินค้าทั้งหมด" onClick={() => setIsMobileOpen(false)} />
-                  </div>
+                  <MenuItem href="/products" icon={<Package size={18} />} label="สินค้าทั้งหมด" onClick={closeMenu} />
                 </div>
 
                 {profile?.is_admin && (
                   <div>
                     <div className="text-[11px] font-black text-emerald-500/80 uppercase tracking-widest px-2 mb-3">เครื่องมือ</div>
-                    <div className="space-y-1">
-                      <MenuItem href="/admin" icon={<Settings />} label="Admin Dashboard" onClick={() => setIsMobileOpen(false)} isAdmin />
-                    </div>
+                    <MenuItem href="/admin" icon={<Settings size={18} />} label="Admin Dashboard" onClick={closeMenu} isAdmin />
                   </div>
                 )}
 
                 <div>
                   <div className="text-[11px] font-black text-gray-500 uppercase tracking-widest px-2 mb-3">ประวัติของฉัน</div>
-                  <div className="space-y-1">
-                    <MenuItem href="/orders" icon={<History />} label="ประวัติการสั่งซื้อ (ดูรหัส)" onClick={() => setIsMobileOpen(false)} />
-                  </div>
-                </div>
-
-                <div>
-                  <div className="text-[11px] font-black text-gray-500 uppercase tracking-widest px-2 mb-3">อื่นๆ</div>
-                  <div className="space-y-1">
-                     <MenuItem href="/how-to" icon={<ChevronRight />} label="วิธีการสั่งซื้อ" onClick={() => setIsMobileOpen(false)} />
-                  </div>
+                  <MenuItem href="/orders" icon={<History size={18} />} label="ประวัติการสั่งซื้อ (ดูรหัส)" onClick={closeMenu} />
                 </div>
               </div>
 
-              {/* ส่วนที่ 4: Logout Button */}
+              {/* 4. Logout */}
               {profile && (
                 <button 
                   onClick={handleLogout}
@@ -199,8 +185,8 @@ export function Header() {
                 </button>
               )}
               
-              <div className="text-center text-[10px] text-gray-600 font-medium pb-4">
-                PremShop Premium Store · Version 7.0
+              <div className="text-center text-[10px] text-gray-600 font-medium py-4">
+                PremShop Premium Store &middot; Version 7.0
               </div>
             </div>
           </div>
@@ -211,17 +197,17 @@ export function Header() {
   );
 }
 
-// Sub-component สำหรับรายการเมนู
-function MenuItem({ href, icon, label, onClick, isAdmin = false }: { href: string, icon: any, label: string, onClick: () => void, isAdmin?: boolean }) {
+// Sub-component สำหรับรายการเมนูแบบ List
+function MenuItem({ href, icon, label, onClick, isAdmin = false }: { href: string, icon: React.ReactNode, label: string, onClick: () => void, isAdmin?: boolean }) {
   return (
     <Link 
       href={href} 
       onClick={onClick}
-      className={`flex items-center justify-between p-4 rounded-2xl border border-white/5 transition-all active:scale-[0.98] ${isAdmin ? 'bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-400' : 'bg-white/5 hover:bg-white/10 text-gray-300'}`}
+      className={`flex items-center justify-between p-4 rounded-2xl border border-white/5 transition-all active:scale-[0.98] mb-2 ${isAdmin ? 'bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-400' : 'bg-white/5 hover:bg-white/10 text-gray-300'}`}
     >
       <div className="flex items-center gap-3">
         <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isAdmin ? 'bg-emerald-500/20' : 'bg-white/5'}`}>
-          {Object.cloneElement(icon, { size: 18 })}
+          {icon}
         </div>
         <span className="text-sm font-bold">{label}</span>
       </div>
@@ -230,4 +216,14 @@ function MenuItem({ href, icon, label, onClick, isAdmin = false }: { href: strin
   );
 }
 
-import React from 'react';
+// Sub-component สำหรับเมนูไอคอน Quick Action
+function QuickAction({ icon, label, href, onClick }: { icon: React.ReactNode, label: string, href: string, onClick: () => void }) {
+  return (
+    <Link href={href} onClick={onClick} className="flex flex-col items-center gap-2 group">
+      <div className="w-14 h-14 bg-white/5 rounded-2xl border border-white/10 flex items-center justify-center transition-all group-hover:bg-purple-600 group-hover:text-white text-gray-400">
+        {React.isValidElement(icon) ? React.cloneElement(icon as React.ReactElement<any>, { size: 24 }) : icon}
+      </div>
+      <span className="text-[10px] text-gray-400 font-bold">{label}</span>
+    </Link>
+  );
+}
