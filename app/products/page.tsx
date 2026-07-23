@@ -1,14 +1,32 @@
 "use client";
 
-import { useState } from "react";
-import { Search, SlidersHorizontal } from "lucide-react";
-import { products, categories } from "@/lib/data";
+import { useState, useEffect } from "react";
+import { Search } from "lucide-react";
+import { categories } from "@/lib/data";
 import { ProductCard } from "@/components/home/ProductCard";
+import { createClient } from "@/lib/supabase/client";
 
 export default function ProductsPage() {
+  const [products, setProducts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedCat, setSelectedCat] = useState("all");
   const [sortBy, setSortBy] = useState("popular");
+  const supabase = createClient();
+
+  useEffect(() => {
+    async function fetchProducts() {
+      setLoading(true);
+      let query = supabase.from("products").select("*").eq("is_active", true);
+      
+      const { data, error } = await query;
+      if (!error && data) {
+        setProducts(data);
+      }
+      setLoading(false);
+    }
+    fetchProducts();
+  }, []);
 
   const filtered = products
     .filter((p) => {
@@ -20,7 +38,7 @@ export default function ProductsPage() {
       if (sortBy === "price-asc") return a.price - b.price;
       if (sortBy === "price-desc") return b.price - a.price;
       if (sortBy === "rating") return b.rating - a.rating;
-      return b.reviewCount - a.reviewCount;
+      return b.review_count - a.review_count;
     });
 
   return (
@@ -81,7 +99,9 @@ export default function ProductsPage() {
         </div>
 
         {/* Products grid */}
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div className="flex justify-center py-20 text-purple-400">กำลังโหลดสินค้า...</div>
+        ) : filtered.length === 0 ? (
           <div className="text-center py-20 text-gray-500">
             <div className="text-4xl mb-3">🔍</div>
             <div>ไม่พบสินค้าที่ค้นหา</div>
