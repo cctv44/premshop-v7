@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { ShoppingCart, Zap, Loader2 } from "lucide-react";
+import { Zap, Loader2 } from "lucide-react";
 import { ProductLogo } from "@/components/ui/ProductLogo";
 import { formatPrice } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -25,34 +24,41 @@ export function ProductCard({ product }: { product: any }) {
       return;
     }
 
-    if (!confirm(`คุณต้องการซื้อ ${product.name} ราคา ฿${product.price} ใช่หรือไม่?`)) return;
+    if (!confirm(`ยืนยันการซื้อ ${product.name} ราคา ฿${product.price}?`)) return;
 
     setLoading(true);
     try {
-      // 1. ตรวจสอบเครดิต
-      const { data: profile } = await supabase.from("profiles").select("balance").eq("id", user.id).single();
-      if ((profile?.balance || 0) < product.price) {
+      // 1. เช็คโปรไฟล์และเครดิต
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("balance")
+        .eq("id", user.id)
+        .single();
+
+      if (!profile || Number(profile.balance) < Number(product.price)) {
         toast.error("เครดิตไม่เพียงพอ กรุณาเติมเงิน");
-        router.push("/topup");
+        setLoading(false);
         return;
       }
 
-      // 2. ตรวจสอบสต็อก
-      const { data: stock } = await supabase
+      // 2. เช็คสต็อก (Account Data)
+      const { data: stock, error: stockErr } = await supabase
         .from("product_stocks")
         .select("id, account_data")
         .eq("product_id", product.id)
         .eq("is_sold", false)
         .limit(1)
-        .single();
+        .maybeSingle();
 
-      if (!stock) {
+      if (stockErr || !stock) {
         toast.error("ขออภัย สินค้าหมดชั่วคราว");
+        setLoading(false);
         return;
       }
 
-      // 3. เริ่มทำรายการ (ตัดเงิน)
-      await supabase.from("profiles").update({ balance: profile.balance - product.price }).eq("id", user.id);
+      // 3. หักเงิน
+      const newBalance = Number(profile.balance) - Number(product.price);
+      await supabase.from("profiles").update({ balance: newBalance }).eq("id", user.id);
 
       // 4. สร้างออเดอร์
       const { data: order } = await supabase.from("orders").insert({
@@ -62,49 +68,54 @@ export function ProductCard({ product }: { product: any }) {
         status: "delivered"
       }).select().single();
 
-      // 5. บันทึกรายละเอียดสินค้าและข้อมูลบัญชี
-      await supabase.from("order_items").insert({
-        order_id: order.id,
-        product_id: product.id,
-        product_name: product.name,
-        price: product.price,
-        account_data: stock.account_data
-      });
+      if (order) {
+        // 5. บันทึกข้อมูลรหัสสินค้าลงในรายการสั่งซื้อ
+        await supabase.from("order_items").insert({
+          order_id: order.id,
+          product_id: product.id,
+          product_name: product.name,
+          price: product.price,
+          account_data: stock.account_data
+        });
 
-      // 6. อัปเดตสต็อกว่าขายแล้ว
-      await supabase.from("product_stocks").update({ is_sold: true }).eq("id", stock.id);
+        // 6. อัปเดตสต็อกว่าขายแล้ว
+        await supabase.from("product_stocks").update({ is_sold: true }).eq("id", stock.id);
 
-      toast.success("ซื้อสินค้าสำเร็จ! กำลังไปหน้าประวัติการสั่งซื้อ", { duration: 4000 });
-      router.push("/orders");
-      
+        toast.success("ซื้อสินค้าสำเร็จ!");
+        router.push("/orders");
+      }
     } catch (error) {
       console.error(error);
-      toast.error("เกิดข้อผิดพลาดในการสั่งซื้อ");
+      toast.error("เกิดข้อผิดพลาดในการทำรายการ");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="glass-card rounded-2xl p-4 border border-purple-900/20 hover:border-purple-700/40 flex flex-col h-full group transition-all">
+    <div className="product-card glass-card rounded-2xl p-4 border border-purple-900/20 hover:border-purple-700/40 flex flex-col h-full transition-all duration-300">
       <div className="flex items-start gap-3 mb-4">
-        <ProductLogo name={product.name} color={product.color} bgColor={product.bgColor} size="md" />
+        <ProductLogo 
+          name={product.name || ""} 
+          color={product.color || "#7C3AED"} 
+          bgColor={product.bgColor || "rgba(124,58,237,0.1)"} 
+          size="md" 
+        />
         <div className="flex-1 min-w-0">
           <div className="font-bold text-white text-sm truncate">{product.name}</div>
-          <div className="text-[10px] text-gray-500 mt-1 line-clamp-2">{product.description}</div>
+          <div className="text-[10px] text-gray-400 mt-1 line-clamp-2">{product.description}</div>
         </div>
       </div>
 
       <div className="mt-auto">
         <div className="flex items-baseline gap-1 mb-3">
-          <span className="text-xl font-black text-white">฿{formatPrice(product.price)}</span>
-          <span className="text-[10px] text-gray-500">/ {product.unit || 'บัญชี'}</span>
+          <span className="text-xl font-black text-white">฿{formatPrice(product.price || 0)}</span>
         </div>
 
         <button
           onClick={handleQuickBuy}
           disabled={loading}
-          className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-700 to-purple-500 hover:from-purple-600 hover:to-purple-400 text-white py-2.5 rounded-xl text-xs font-bold transition-all shadow-lg shadow-purple-900/20"
+          className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-700 to-purple-500 hover:from-purple-600 hover:to-purple-400 text-white py-2.5 rounded-xl text-xs font-bold transition-all shadow-lg disabled:opacity-50"
         >
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Zap className="w-4 h-4 fill-current" /> ซื้อทันที</>}
         </button>
